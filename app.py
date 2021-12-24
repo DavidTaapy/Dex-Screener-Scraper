@@ -1,8 +1,7 @@
 # Importing libraries
+from numpy import NaN
 import pandas as pd
 import time
-import requests
-from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -19,18 +18,18 @@ urls = [
 # Function to turn retrieved data into a dataframe
 def processData(data):
     # Remove V2 Column
-    data = list(filter(lambda x: x != 'V2', data))
+    data = list(filter(lambda x: x not in ['V1', 'V2', 'V3'], data))
     # Change here if first column is changed
     firstColumn = "TOKEN"   
     firstColumnIndex = data.index(firstColumn)
     # First Data Element
-    if data.index("#1"):
+    if "#1" in data:
         firstDataIndex = data.index("#1")
-    elif data.index("#101"):
+    elif "#101" in data:
         firstDataIndex = data.index("#101")
-    elif data.index("#201"):
+    elif "#201" in data:
         firstDataIndex = data.index("#201")
-    elif data.index("#301"):
+    elif "#301" in data:
         firstDataIndex = data.index("#301")
     else:
         return "Error in getting first data index!"
@@ -45,9 +44,21 @@ def processData(data):
     df = pd.DataFrame(columns = columns)
     df_length = 0
     # Add the data into the dataframe
-    for _ in range(numRows):
+    while firstDataIndex < len(data):
         rowElements = data[firstDataIndex : firstDataIndex + numColumns]
-        df.loc[df_length] = rowElements # Add data elements as a row to dataframe
+        for element in rowElements:
+            if '$' in element and '.' in element:               # Find Price
+                priceIndex = rowElements.index(element)
+                break
+        finalRowElements = rowElements[0 : priceIndex]
+        # Some names are not retrieved properly from DexScreener - Replace with NIL
+        tempNumColumns = numColumns
+        while len(finalRowElements) < 3:
+            finalRowElements.append("NIL")
+            tempNumColumns -= 1
+            firstDataIndex -= 1
+        finalRowElements += rowElements[priceIndex : tempNumColumns]
+        df.loc[df_length] = finalRowElements # Add data elements as a row to dataframe
         firstDataIndex += numColumns # Increment index to become the first element of the next data row
         df_length += 1 # Increment number of rows in dataframe
     
@@ -55,6 +66,9 @@ def processData(data):
 
 # Initialize Driver
 driver = webdriver.Firefox()
+# Initialize Empty Dataframe
+masterDf = pd.DataFrame()
+# Scrape each url page
 for url in urls:
     # Statement to inform about progress
     print('Scraping {0}'.format(url))
@@ -67,14 +81,14 @@ for url in urls:
             data = data.text.split('\n')
             tempDf = processData(data)
             print(tempDf)
-        break
+            masterDf = masterDf.append(tempDf)
         time.sleep(1) # Delay by one second
     except Exception as e:
         print(e)
         continue
+
 # Close Driver
 driver.close()
 
-# Combine the tables
-# results = pd.concat(tables, axis = 0)
-# results.to_excel('Dex Screener.xlsx', index = False)
+# Export the table
+masterDf.to_csv("Data.csv", index = False)
