@@ -5,7 +5,7 @@ import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC        
+from selenium.webdriver.support import expected_conditions as EC
 
 # Function to turn retrieved data into a dataframe
 def processData(data, firstIndex):
@@ -52,27 +52,28 @@ def processData(data, firstIndex):
     
     return df
 
-# # Process Data After Retrieval
-# def postProcess(df):
-#     # Dictionary for units
-#     units = {
-#         'K': 10 ** 3,
-#         'M': 10 ** 6,
-#         'B': 10 ** 9,
-#         'T': 10 ** 12
-#     }
+# Process Data After Retrieval
+def postProcess(df):
+    # Dictionary for units
+    units = {
+        'M': 10 ** 6,
+        'B': 10 ** 9,
+        'T': 10 ** 12
+    }
 
-#     # Remove tokens exhibiting ridiculous market capitalizations
-#     df = df.loc[(df['MKT CAP'] != '>$999T') & (df['MKT CAP'] != '<$1') & (df['MKT CAP'] != '-')]
-#     # Convert Market Cap to Integer
-#     # df['MKT CAP'] = df['MKT CAP'].apply(lambda x: float(x[1:-1] * units[x[-1]]))
-#     # Remove entries with Market Cap less than 2 Million
-#     # twoMillion = 2 * (10 ** 6)
-#     # df = df.loc[df['MKT CAP'] >= twoMillion]
-#     # Sort Market Cap in descending order
-#     # df = df.sort_values(by = ['MKT CAP'], ascending = False)
+    # Remove tokens with absurd Market Capitalisation
+    df = df.loc[df['MKT CAP'] != '>$999T']
+    # Keep tokens with units Millions, Billions, Trillions
+    df = df.loc[df['MKT CAP'].str.contains("[M,B,T]$")]
+    # Convert Market Cap to Integer
+    df['MKT CAP'] = df['MKT CAP'].apply(lambda x: float(x[1: -1]) * (units[x[-1]]))
+    # Remove entries with Market Cap less than 2 Million
+    twoMillion = 2 * (10 ** 6)
+    df = df.loc[df['MKT CAP'] >= twoMillion]
+    # Sort Market Cap in descending order
+    df = df.sort_values(by = ['MKT CAP'], ascending = False)
 
-#     return df
+    return df
 
 # Scrape Dex Screener For Data
 def scrapeDex():
