@@ -1,5 +1,5 @@
 # Importing libraries
-from numpy import NaN
+from numpy import NaN, True_
 import pandas as pd
 import time
 from selenium import webdriver
@@ -77,55 +77,56 @@ def postProcess(df):
 
 # Scrape Dex Screener For Data
 def scrapeDex():
+    startTime = time.time()  # Time the program was started
     # Initialize the URLs - Add the first pages of the genre to scrape
     urls = [   
         "https://dexscreener.com/new-pairs"             # First Page of New Pairs
     ]        
     # Initialize Driver
     driver = webdriver.Firefox()
-    # Initialize Empty Dataframe
-    masterDf = pd.DataFrame()
-    # Set first index of current page
-    firstIndex = 1
-   
+    
+    while True:
     # Scrape each url page
-    for url in urls:       
-        while True:
-            # Statement to inform about progress
-            print('Scraping with first index = {0}'.format(firstIndex))
-            try:
-                driver.get(url)
-                data = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, 'css-18z8t27'))
-                )
-                nextData = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, 'css-v0p5eh'))
-                )
-                if data:
-                    data = data.text.split('\n')
-                    tempDf = processData(data, firstIndex)
-                    masterDf = masterDf.append(tempDf)
-                    firstIndex += 100
-                    if str(firstIndex) not in nextData.text:
-                        break
-                    else:
-                        # Change url to include new page number
-                        if "page" not in url:   # If first page
-                            url += "/page-2"
+        for url in urls:
+            # Initialize Empty Dataframe
+            masterDf = pd.DataFrame()
+            # Set first index of current page
+            firstIndex = 1       
+            while True:
+                # Statement to inform about progress
+                print('Scraping with first index = {0}'.format(firstIndex))
+                try:
+                    driver.get(url)
+                    data = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CLASS_NAME, 'css-18z8t27'))
+                    )
+                    nextData = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CLASS_NAME, 'css-v0p5eh'))
+                    )
+                    if data:
+                        data = data.text.split('\n')
+                        tempDf = processData(data, firstIndex)
+                        masterDf = masterDf.append(tempDf)
+                        firstIndex += 100
+                        if str(firstIndex) not in nextData.text:
+                            break
                         else:
-                            baseURL, pageNum = url.split("page-")   # If a page number is already present
-                            url = baseURL + "page-" + str(int(pageNum) + 1)
-                time.sleep(1) # Delay by one second
-            except Exception as e:
-                print(e)
-                continue
-
-    # Close Driver
-    driver.close()
-    # Post Process Dataframe
-    masterDf = postProcess(masterDf)
-    # Export the table
-    masterDf.to_csv("Data.csv", index = False)
+                            # Change url to include new page number
+                            if "page" not in url:   # If first page
+                                url += "/page-2"
+                            else:
+                                baseURL, pageNum = url.split("page-")   # If a page number is already present
+                                url = baseURL + "page-" + str(int(pageNum) + 1)
+                    time.sleep(1) # Delay by one second
+                except Exception as e:
+                    print(e)
+                    continue
+            # Post Process Dataframe
+            masterDf = postProcess(masterDf)
+            # Export the table
+            masterDf.to_csv("Data.csv", index = False)
+        # Sleep for remaining time left in three minutes
+        time.sleep(180.0 - (time.time() - startTime) % 180.0)
 
 # Run the following when program is executed
 if __name__ == "__main__":
