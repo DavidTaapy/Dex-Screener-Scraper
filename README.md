@@ -17,3 +17,7 @@ The sample output csv that will be produced after scraping Dex Screener can be f
 ## Project Requiremenets
 
 As the number of pages on Dex Screener may vary due to the market, the program must dynamically go to the next page until there are no new pages to retrieve all the relevant data as manual url provision might lead to errors and be troublesome!
+
+## Update
+
+Due to website starting to introduce anti-bot mechanics such as Cloudflare, it has hindered the bot's ability to scrape data from the website for analysis! Therefore, the bot was changed to be equipped with the ability to overcome these obstacles!
