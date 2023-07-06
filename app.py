@@ -83,7 +83,7 @@ def scrapeDex():
         "https://dexscreener.com/new-pairs"             # First Page of New Pairs
     ]        
     # Initialize Driver
-    driver = webdriver.Firefox()
+    driver = webdriver.Chrome()
     
     while True:
     # Scrape each url page
