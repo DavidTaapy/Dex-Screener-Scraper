@@ -2,10 +2,10 @@
 from numpy import NaN, True_
 import pandas as pd
 import time
-from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import undetected_chromedriver as uc
 
 # Function to turn retrieved data into a dataframe
 def processData(data, firstIndex):
@@ -22,8 +22,7 @@ def processData(data, firstIndex):
         return "Error in getting first data index!"
     # Get number of columns by deducted index of first data element from index of first column element   
     numColumns = firstDataIndex - firstColumnIndex + 2 # The two additional ones are the "#Num" & "Token Pair"
-    # Find the number of rows
-    numRows = int((len(data) - firstDataIndex) / numColumns)
+    numColumnsPreMerge = numColumns + 2 # Token-Currency Pair Currently Split Into 3 Parts - 'Token' '/' 'Currency'
     # Get the column names
     columns = ["Number", "Currency Pair"]
     columns += data[firstColumnIndex : firstColumnIndex + numColumns - 2] # Minus 2 as we already have the first two columns in the columns list
@@ -32,11 +31,23 @@ def processData(data, firstIndex):
     df_length = 0
     # Add the data into the dataframe
     while firstDataIndex < len(data):
-        rowElements = data[firstDataIndex : firstDataIndex + numColumns]
+        # Get data for given row
+        rowElements = data[firstDataIndex : firstDataIndex + numColumnsPreMerge]
+        # Handle foreign names that are hidden
+        if not rowElements[1].isascii():
+            rowElements.insert(4, rowElements[1])
+            rowElements = rowElements[:-1]
+            firstDataIndex -= 1
+        # Replace the currency sign
         for element in rowElements:
             if ('$' in element and '.' in element) or element == '$0':  # Find Price
                 priceIndex = rowElements.index(element)
                 break
+        # Merge the currency, slash and token as mentioned above
+        rowElements[1] += rowElements[2] + rowElements[3]
+        del rowElements[2]
+        del rowElements[3]
+        # Get the final row elements
         finalRowElements = rowElements[0 : priceIndex]
         # Some names are not retrieved properly from DexScreener - Replace with NIL
         tempNumColumns = numColumns
@@ -47,7 +58,7 @@ def processData(data, firstIndex):
         finalRowElements += rowElements[priceIndex : tempNumColumns]
         # print(finalRowElements)
         df.loc[df_length] = finalRowElements # Add data elements as a row to dataframe
-        firstDataIndex += numColumns # Increment index to become the first element of the next data row
+        firstDataIndex += numColumnsPreMerge # Increment index to become the first element of the next data row
         df_length += 1 # Increment number of rows in dataframe
     
     return df
@@ -62,16 +73,16 @@ def postProcess(df):
     }
 
     # Remove tokens with absurd Market Capitalisation
-    df = df.loc[df['MKT CAP'] != '>$999T']
+    df = df.loc[df['FDV'] != '>$999T']
     # Keep tokens with units Millions, Billions, Trillions
-    df = df.loc[df['MKT CAP'].str.contains("[M,B,T]$")]
+    df = df.loc[df['FDV'].str.contains("[M,B,T]$")]
     # Convert Market Cap to Integer
-    df['MKT CAP'] = df['MKT CAP'].apply(lambda x: float(x[1: -1]) * (units[x[-1]]))
+    df['FDV'] = df['FDV'].apply(lambda x: float(x[1: -1]) * (units[x[-1]]))
     # Remove entries with Market Cap less than 2 Million
     twoMillion = 2 * (10 ** 6)
-    df = df.loc[df['MKT CAP'] >= twoMillion]
+    df = df.loc[df['FDV'] >= twoMillion]
     # Sort Market Cap in descending order
-    df = df.sort_values(by = ['MKT CAP'], ascending = False)
+    df = df.sort_values(by = ['FDV'], ascending = False)
 
     return df
 
@@ -82,8 +93,9 @@ def scrapeDex():
     urls = [   
         "https://dexscreener.com/new-pairs"             # First Page of New Pairs
     ]        
+    
     # Initialize Driver
-    driver = webdriver.Chrome()
+    driver = uc.Chrome()
     
     while True:
     # Scrape each url page
@@ -98,10 +110,10 @@ def scrapeDex():
                 try:
                     driver.get(url)
                     data = WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.CLASS_NAME, 'css-18z8t27'))
+                        EC.presence_of_element_located((By.CLASS_NAME, 'ds-dex-table'))
                     )
                     nextData = WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.CLASS_NAME, 'css-v0p5eh'))
+                        EC.presence_of_element_located((By.CLASS_NAME, 'custom-v0p5eh'))
                     )
                     if data:
                         data = data.text.split('\n')
