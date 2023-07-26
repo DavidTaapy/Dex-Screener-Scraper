@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import undetected_chromedriver as uc
+from seleniumbase import Driver
 
 # Function to turn retrieved data into a dataframe
 def processData(data, firstIndex):
@@ -31,22 +32,30 @@ def processData(data, firstIndex):
     df_length = 0
     # Add the data into the dataframe
     while firstDataIndex < len(data):
+        to_reduce_2 = False
+        to_reduce_1 = False
         # Get data for given row
         rowElements = data[firstDataIndex : firstDataIndex + numColumnsPreMerge]
         # Handle foreign names that are hidden
-        if not rowElements[1].isascii():
-            rowElements.insert(4, rowElements[1])
-            rowElements = rowElements[:-1]
-            firstDataIndex -= 1
+        # if not rowElements[1].isascii():
+        #     rowElements.insert(4, rowElements[1])
+        #     rowElements = rowElements[:-1]
+        #     firstDataIndex -= 1
         # Replace the currency sign
         for element in rowElements:
             if ('$' in element and '.' in element) or element == '$0':  # Find Price
                 priceIndex = rowElements.index(element)
                 break
         # Merge the currency, slash and token as mentioned above
-        rowElements[1] += rowElements[2] + rowElements[3]
-        del rowElements[2]
-        del rowElements[3]
+        if priceIndex != 2:
+            rowElements[1] += rowElements[2] + rowElements[3]
+            if priceIndex == 4:
+                rowElements.insert(4, rowElements[3])
+                to_reduce_1 = True
+            del rowElements[2]
+            del rowElements[3]
+        else:
+            to_reduce_2 = True
         # Get the final row elements
         finalRowElements = rowElements[0 : priceIndex]
         # Some names are not retrieved properly from DexScreener - Replace with NIL
@@ -59,6 +68,10 @@ def processData(data, firstIndex):
         # print(finalRowElements)
         df.loc[df_length] = finalRowElements # Add data elements as a row to dataframe
         firstDataIndex += numColumnsPreMerge # Increment index to become the first element of the next data row
+        if to_reduce_2:
+            firstDataIndex -= 2
+        elif to_reduce_1:
+            firstDataIndex -= 1
         df_length += 1 # Increment number of rows in dataframe
     
     return df
@@ -95,7 +108,8 @@ def scrapeDex():
     ]        
     
     # Initialize Driver
-    driver = uc.Chrome()
+    # driver = uc.Chrome()
+    driver = Driver(uc=True)
     
     while True:
     # Scrape each url page
